@@ -23,13 +23,14 @@ __kernel void pi_opencl(__global unsigned int * seeds,
                __global unsigned int* group_dentros,
                unsigned int M) {
 
-   uint gid, num_puntos, part_dentro, seed;
+   uint gid, num_puntos, part_dentro, seed, max_hilos;
 
    gid = get_global_id(0);
+   max_hilos = get_global_size(0);
 
-   num_puntos = M / get_global_size(0);
+   num_puntos = M /max_hilos;
    if (gid == 0)
-      num_puntos += M % get_global_size(0);
+      num_puntos += M % max_hilos;
 
    seed = seeds[gid];
 

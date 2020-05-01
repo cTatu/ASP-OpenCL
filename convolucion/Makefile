@@ -1,4 +1,4 @@
-PROJ=add_numbers
+PROJ=conv_opencl
 
 CC=gcc
 
@@ -24,7 +24,7 @@ ifneq ($(DARWIN),)
 else
 
 # Linux OS
-LIBS=-lOpenCL
+LIBS=-lOpenCL -lm
 ifeq ($(PROC_TYPE),)
 	CFLAGS+=-m32
 else

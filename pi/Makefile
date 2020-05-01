@@ -2,7 +2,7 @@ PROJ=pi_opencl
 
 CC=gcc
 
-CFLAGS=-std=c99 -Wall -Werror
+CFLAGS=-std=c99 -Wall -DUNIX -O3
 
 # Check for 32-bit vs 64-bit
 PROC_TYPE = $(strip $(shell uname -m | grep 64))
@@ -49,7 +49,7 @@ endif
 endif
 endif
 
-$(PROJ): $(PROJ).c
+$(PROJ): $(PROJ).c ../utils.h
 	$(CC) $(CFLAGS) -o $@ $^ $(INC_DIRS:%=-I%) $(LIB_DIRS:%=-L%) $(LIBS)
 
 .PHONY: clean
