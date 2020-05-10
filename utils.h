@@ -17,15 +17,19 @@
 #endif
 
 
-void print_time_exec(cl_event event){
+double getTimeExec(cl_event event) {
    cl_ulong time_start;
    cl_ulong time_end;
 
    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
    clGetEventProfilingInfo(event, CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
 
-   double nanoSeconds = time_end-time_start;
-   printf("OpenCl Execution time is: %0.3f mili seconds \n", nanoSeconds / 1000000.0);
+   return (time_end-time_start) / 1000000.0;
+}
+
+void print_time_exec(cl_event event){
+   double nanoSeconds = getTimeExec(event);
+   printf("OpenCl Execution time is: %0.3f mili seconds \n", nanoSeconds );
 }
 
 

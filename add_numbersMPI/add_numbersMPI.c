@@ -1,6 +1,9 @@
 #define PROGRAM_FILE "add_numbersMPI.cl"
 #define KERNEL_FUNC "add_numbersMPI"
 
+#define _DEFAULT_SOURCE
+
+#include <unistd.h>
 #include <mpi.h>
 #include "../utils.h"
 
@@ -134,7 +137,7 @@ int main(int argc, char *argv[]) {
    clWaitForEvents(1, &event);
    clFinish(queue);
 
-   print_time_exec(event);
+   double miliseconds_kernel = getTimeExec(event);
 
    /* Read the kernel's output    */
    err = clEnqueueReadBuffer(queue, sum_buffer, CL_TRUE, 0, 
@@ -150,12 +153,19 @@ int main(int argc, char *argv[]) {
 
    long sum_tot;
    MPI_Reduce(&res, &sum_tot, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+   double* tiempos = (double*) calloc(world_size, sizeof(double));
+   MPI_Gather(&miliseconds_kernel, 1, MPI_DOUBLE, tiempos, world_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
    MPI_Finalize();
 
    free(part_sum);
    
-   printf("Computed sum = %ld\n", sum_tot);
-   printf("Total tiempo: %f s\n", ((double)clock() - t) / CLOCKS_PER_SEC);
+   if (world_rank == 0){
+      printf("Total tiempo: %f s\n", ((double)clock() - t) / CLOCKS_PER_SEC);
+      char hostname[200];
+      gethostname(hostname, 100);
+      printf("Hostname: %s -> %.2f ms\n", hostname, tiempos[0]);
+      printf("Computed sum = %ld\n", sum_tot);
+   }
 
    /* Deallocate resources */
    clReleaseKernel(kernel);
