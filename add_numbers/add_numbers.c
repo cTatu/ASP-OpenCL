@@ -1,30 +1,29 @@
 #define PROGRAM_FILE "add_numbers.cl"
 #define KERNEL_FUNC "add_numbers"
-#define ARRAY_SIZE 64
 
 #include "../utils.h"
 
-int main() {
+int main(int argc, char *argv[]) {
 
-   /* OpenCL structures */
    cl_device_id device;
    cl_context context;
    cl_program program;
    cl_kernel kernel;
    cl_command_queue queue;
-   cl_int i, j, err;
+   cl_int i, err;
    size_t local_size, global_size;
 
-   /* Data and buffers    */
-   float data[ARRAY_SIZE];
-   float sum[2], total, actual_sum;
-   cl_mem input_buffer, sum_buffer;
+   cl_mem sum_buffer;
    cl_int num_groups;
 
-   /* Initialize data */
-   for(i=0; i<ARRAY_SIZE; i++) {
-      data[i] = 1.0f*i;
-   }
+   // variable donde se almacenará el resultado
+	long res = 0;
+
+	clock_t t = clock();
+
+	int M = 64;
+	if (argc == 2)
+		M = atoi(argv[1]);
 
    /* Create device and context 
 
@@ -60,13 +59,11 @@ int main() {
    utilization of cores
    • Optimal workgroup size differs across applications
    */
-   global_size = 8; // WHY ONLY 8?
-   local_size = 4; 
-   num_groups = global_size/local_size;
-   input_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY |
-         CL_MEM_COPY_HOST_PTR, ARRAY_SIZE * sizeof(float), data, &err); // <=====INPUT
-   sum_buffer = clCreateBuffer(context, CL_MEM_READ_WRITE |
-         CL_MEM_COPY_HOST_PTR, num_groups * sizeof(float), sum, &err); // <=====OUTPUT
+   local_size = 32; 
+   num_groups = M / local_size;
+   global_size = local_size*num_groups;
+   printf("Num groups: %d GlobalSize: %ld LocalSize: %ld\n", num_groups, global_size, local_size);
+   sum_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, num_groups * sizeof(long), NULL, &err); // <=====OUTPUT
    if(err < 0) {
       perror("Couldn't create a buffer");
       exit(1);   
@@ -76,7 +73,7 @@ int main() {
 
    Does not support profiling or out-of-order-execution
    */
-   queue = clCreateCommandQueue(context, device, 0, &err);
+   queue = clCreateCommandQueue(context, device, CL_QUEUE_PROFILING_ENABLE, &err);
    if(err < 0) {
       perror("Couldn't create a command queue");
       exit(1);   
@@ -90,9 +87,9 @@ int main() {
    };
 
    /* Create kernel arguments */
-   err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &input_buffer); // <=====INPUT
-   err |= clSetKernelArg(kernel, 1, local_size * sizeof(float), NULL);
-   err |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &sum_buffer); // <=====OUTPUT
+   err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &sum_buffer); // <=====OUTPUT
+   err |= clSetKernelArg(kernel, 1, sizeof(int), &M);
+   err |= clSetKernelArg(kernel, 2, local_size * sizeof(long), NULL);
    if(err < 0) {
       perror("Couldn't create a kernel argument");
       exit(1);
@@ -110,39 +107,41 @@ int main() {
    be generated to execute the kernel (global_size) and the number of 
    work-items in each work-group (local_size).
    */
+  cl_event event;
    err = clEnqueueNDRangeKernel(queue, kernel, 1, NULL, &global_size, 
-         &local_size, 0, NULL, NULL); 
+         &local_size, 0, NULL, &event); 
    if(err < 0) {
       perror("Couldn't enqueue the kernel");
       exit(1);
    }
 
+   long* part_sum = (long*) calloc(num_groups, sizeof(long));
+
+   clWaitForEvents(1, &event);
+   clFinish(queue);
+
+   print_time_exec(event);
+
    /* Read the kernel's output    */
    err = clEnqueueReadBuffer(queue, sum_buffer, CL_TRUE, 0, 
-         sizeof(sum), sum, 0, NULL, NULL); // <=====GET OUTPUT
+         num_groups * sizeof(long), part_sum, 0, NULL, NULL); // <=====GET OUTPUT
    if(err < 0) {
       perror("Couldn't read the buffer");
       exit(1);
    }
 
    /* Check result */
-   total = 0.0f;
-   for(j=0; j<num_groups; j++)
-      total += sum[j];
+   for(i=0; i<num_groups; i++)
+      res += part_sum[i];
    
-   actual_sum = 0.0f;
-   for(i = 0; i < ARRAY_SIZE; i++)
-      actual_sum += i;
-   printf("Computed sum = %.1f.\n", total);
-   if(fabs(total - actual_sum) > 0.01*fabs(actual_sum))
-      printf("Check failed.\n");
-   else
-      printf("Check passed.\n");
+   printf("Computed sum = %ld.\n", res);
+   printf("Total tiempo: %f s\n", ((double)clock() - t) / CLOCKS_PER_SEC);
+
+   free(part_sum);
 
    /* Deallocate resources */
    clReleaseKernel(kernel);
    clReleaseMemObject(sum_buffer);
-   clReleaseMemObject(input_buffer);
    clReleaseCommandQueue(queue);
    clReleaseProgram(program);
    clReleaseContext(context);

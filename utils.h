@@ -28,16 +28,7 @@ void print_time_exec(cl_event event){
    printf("OpenCl Execution time is: %0.3f mili seconds \n", nanoSeconds / 1000000.0);
 }
 
-/* Find a GPU or CPU associated with the first available platform 
 
-The `platform` structure identifies the first platform identified by the 
-OpenCL runtime. A platform identifies a vendor's installation, so a system 
-may have an NVIDIA platform and an AMD platform. 
-
-The `device` structure corresponds to the first accessible device 
-associated with the platform. Because the second parameter is 
-`CL_DEVICE_TYPE_GPU`, this device must be a GPU.
-*/
 cl_device_id create_device() {
 
    cl_platform_id platform;
