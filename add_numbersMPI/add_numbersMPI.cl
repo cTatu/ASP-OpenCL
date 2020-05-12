@@ -1,5 +1,5 @@
 
-__kernel void add_numbersMPI(__global long* group_sum, int init, int final, __local long* local_sum) {
+__kernel void add_numbersMPI(__global long* group_sum, long init, long final, __local long* local_sum) {
 
    long tid, gid, total_hilos, register_sum, s;
 
@@ -8,7 +8,7 @@ __kernel void add_numbersMPI(__global long* group_sum, int init, int final, __lo
 	total_hilos = get_global_size(0);
 
    register_sum = 0;
-	for(int i= init + gid; i <= final; i += total_hilos)
+	for(long i= init + gid; i <= final; i += total_hilos)
 		register_sum += i;
 
 	local_sum[tid] = register_sum;
