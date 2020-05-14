@@ -1,10 +1,10 @@
-FROM docker.io/intelopencl/intel-opencl:ubuntu-20.04-ppa
+FROM ubuntu:latest
 
 RUN apt-get update
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get install -y openssh-server openmpi-bin mpi mpich* make git ocl-icd-opencl-dev
+RUN apt-get install -y openssh-server openmpi-bin mpi mpich* make git pocl-opencl-icd ocl-icd-opencl-dev
 
 RUN ln -fs /usr/share/zoneinfo/Europe/Madrid /etc/localtime
 RUN dpkg-reconfigure --frontend noninteractive tzdata
@@ -25,4 +25,4 @@ RUN apt-get clean && \
 
 EXPOSE 22
 
-CMD    ["/usr/sbin/sshd", "-D"]
+CMD ["/usr/sbin/sshd", "-D"]
