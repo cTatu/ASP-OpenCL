@@ -1,0 +1,1 @@
+docker run -d --hostname docker --device /dev/dri:/dev/dri -p 69:22 --name mpi mpi-opencl

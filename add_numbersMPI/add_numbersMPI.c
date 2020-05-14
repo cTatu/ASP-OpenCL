@@ -20,10 +20,14 @@ int main(int argc, char *argv[]) {
    cl_mem sum_buffer;
    cl_int num_groups;
 
+   char hostname[100];
+
    // variable donde se almacenará el resultado
-	long res = 0;
+	unsigned long int res = 0;
 
 	clock_t t = clock();
+
+   gethostname(hostname, 100);
    
    MPI_Init(NULL, NULL);
 
@@ -31,13 +35,16 @@ int main(int argc, char *argv[]) {
    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
    MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 
-	int M = 64;
-	if (argc == 2)
-		M = atoi(argv[1]);
+   if (world_rank == 0)
+      printf("\n");
 
-   int init = (world_rank * M / world_size) + 1;
-   int final = (world_rank + 1) * M / world_size;
-   int num_nums = M / world_size;
+	long M = 64;
+	if (argc == 2)
+		M = strtol(argv[1], NULL, 10);
+
+   long init = (world_rank * M / world_size) + 1;
+   long final = (world_rank + 1) * M / world_size;
+   long num_nums = M / world_size;
 
    /* Create device and context 
 
@@ -73,10 +80,11 @@ int main(int argc, char *argv[]) {
    utilization of cores
    • Optimal workgroup size differs across applications
    */
+   max_workgroup = 128;
    clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &max_workgroup, NULL);
-   
+
    local_size = max_workgroup / 4;
-   num_groups = num_nums / local_size;
+   num_groups = num_nums / local_size / 10000;
    global_size = local_size*num_groups;
    printf("Num groups: %d GlobalSize: %ld LocalSize: %ld\n", num_groups, global_size, local_size);
    sum_buffer = clCreateBuffer(context, CL_MEM_WRITE_ONLY, num_groups * sizeof(long), NULL, &err); // <=====OUTPUT
@@ -104,8 +112,8 @@ int main(int argc, char *argv[]) {
 
    /* Create kernel arguments */
    err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &sum_buffer); // <=====OUTPUT
-   err |= clSetKernelArg(kernel, 1, sizeof(int), &init);
-   err |= clSetKernelArg(kernel, 2, sizeof(int), &final);
+   err |= clSetKernelArg(kernel, 1, sizeof(long), &init);
+   err |= clSetKernelArg(kernel, 2, sizeof(long), &final);
    err |= clSetKernelArg(kernel, 3, local_size * sizeof(long), NULL);
    if(err < 0) {
       perror("Couldn't create a kernel argument");
@@ -147,24 +155,21 @@ int main(int argc, char *argv[]) {
       exit(1);
    }
 
-   #pragma omp parallel reduction(+: res)
+   #pragma omp parallel for reduction(+: res)
    for(i=0; i<num_groups; i++)
       res += part_sum[i];
 
-   long sum_tot;
-   MPI_Reduce(&res, &sum_tot, 1, MPI_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-   double* tiempos = (double*) calloc(world_size, sizeof(double));
-   MPI_Gather(&miliseconds_kernel, 1, MPI_DOUBLE, tiempos, world_size, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+   unsigned long int sum_tot;
+   MPI_Reduce(&res, &sum_tot, 1, MPI_UNSIGNED_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
    MPI_Finalize();
 
    free(part_sum);
    
+
+   printf("Hostname: %s -> %.2f ms\n", hostname, miliseconds_kernel);
    if (world_rank == 0){
       printf("Total tiempo: %f s\n", ((double)clock() - t) / CLOCKS_PER_SEC);
-      char hostname[200];
-      gethostname(hostname, 100);
-      printf("Hostname: %s -> %.2f ms\n", hostname, tiempos[0]);
-      printf("Computed sum = %ld\n", sum_tot);
+      printf("Computed sum = %lu\n", sum_tot);
    }
 
    /* Deallocate resources */
